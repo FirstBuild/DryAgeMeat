@@ -6,12 +6,15 @@
 
 #define DRYAGEMEAT_VERSION_MAJOR 0
 #define DRYAGEMEAT_VERSION_MINOR 0
-#define DRYAGEMEAT_VERSION_PATCH 4
+#define DRYAGEMEAT_VERSION_PATCH 5
 
 // How many leds in your strip?
 #define NUM_LEDS 19
 #define DATA_PIN D7
 #define BRIGHTNESS 155  /// 60% brightness -- Max value is 255
+
+#define COMPRESSOR_RELAY D6
+#define FAN_RELAY A5
 
 // system defines
 #define DHTTYPE  DHT11              // Sensor type DHT11/21/22/AM2301/AM2302
