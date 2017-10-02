@@ -6,7 +6,7 @@
 
 #define DRYAGEMEAT_VERSION_MAJOR 0
 #define DRYAGEMEAT_VERSION_MINOR 0
-#define DRYAGEMEAT_VERSION_PATCH 3
+#define DRYAGEMEAT_VERSION_PATCH 4
 
 // How many leds in your strip?
 #define NUM_LEDS 19
