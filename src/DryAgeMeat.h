@@ -2,10 +2,16 @@
 #define DRYAGEMEAT_H
 
 #include "PietteTech_DHT.h"
+#include "neopixel.h"
 
 #define DRYAGEMEAT_VERSION_MAJOR 0
 #define DRYAGEMEAT_VERSION_MINOR 0
-#define DRYAGEMEAT_VERSION_PATCH 2
+#define DRYAGEMEAT_VERSION_PATCH 3
+
+// How many leds in your strip?
+#define NUM_LEDS 19
+#define DATA_PIN D7
+#define BRIGHTNESS 155  /// 60% brightness -- Max value is 255
 
 // system defines
 #define DHTTYPE  DHT11              // Sensor type DHT11/21/22/AM2301/AM2302
@@ -16,8 +22,9 @@ class DryAgeMeat {
   public:
     DryAgeMeat(void) { }
     PietteTech_DHT* DHT;
+    Adafruit_NeoPixel* strip;
     unsigned int DHTnextSampleTime;	    // Next time we want to start sample
-    bool bDHTstarted;		    // flag to indicate we started acquisition
+    bool bDHTstarted;		                // flag to indicate we started acquisition
     int n;                              // counter
 
   public:
@@ -25,11 +32,27 @@ class DryAgeMeat {
       Serial.begin(9600);
 
       DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
+      strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
+      strip->begin();
+      strip->setBrightness(BRIGHTNESS);
+      strip->show();
       DHTnextSampleTime = 0;  // Start the first sample immediately
     }
+
     void loop() {
-      humiditySampler();
     }
+
+    void turnOn() {
+      for (int i = 0; i < NUM_LEDS; i++) {
+        strip->setColor(i, 255, 255, 255);
+      }
+      strip->show();
+    }
+
+    void turnOff() {
+      strip->clear();
+    }
+
     void humiditySampler() {
       // Check if we need to start the next sample
       if (millis() > DHTnextSampleTime) {
