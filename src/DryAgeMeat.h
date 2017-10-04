@@ -86,11 +86,21 @@ public:
     refreshData();
   }
 
-  //  Handle compressor and fan
-  void handleCompressorAndFan() {
-    float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-    if (averageAmbient > (targetTemp - targetOffset)) {
+  //  Handle compressor
+  void handleCompressor() {
+  //  float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+  //  if (averageAmbient > (targetTemp - targetOffset)) {
+//
+  //  }
 
+  }
+
+  //  Handle fan
+  void handleFan() {
+    if (doorButton->onReleased()) {
+      turnFanOff();
+    } else if (doorButton->onPressed()) {
+      turnFanOn();
     }
   }
 
@@ -98,9 +108,9 @@ public:
   //  Handle light behavior
   void handleLights() {
     if (doorButton->onReleased()) {
-      turnOn();
+      turnLightsOn();
     } else if (doorButton->onPressed()) {
-      turnOff();
+      turnLightsOff();
     }
   }
 
@@ -119,20 +129,20 @@ public:
   }
 
   //  Compressor Control
-  void turnOnCompressor() {
+  void turnCompressorOn() {
       digitalWrite(COMPRESSOR_RELAY, HIGH);
   }
 
-  void turnOffCompressor() {
+  void turnCompressorOff() {
       digitalWrite(COMPRESSOR_RELAY, LOW);
   }
 
   //  Fan Control
-  void turnOnFan() {
+  void turnFanOn() {
       digitalWrite(FAN_RELAY, HIGH);
   }
 
-  void turnOffFan() {
+  void turnFanOff() {
       digitalWrite(FAN_RELAY, LOW);
   }
 
@@ -202,14 +212,14 @@ public:
   }
 
   // LED Control
-  void turnOn() {
+  void turnLightsOn() {
     for (int i = 0; i < NUM_LEDS; i++) {
       strip->setColor(i, 255, 255, 255);
     }
     strip->show();
   }
 
-  void turnOff() {
+  void turnLightsOff() {
     strip->clear();
     strip->show();
   }
