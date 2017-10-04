@@ -30,6 +30,7 @@
 #define DHTPIN   A1           	    // Digital pin for communications
 
 const int selectPins[3] = {S0, S1, S2}; //
+const int targetOffset = 10;
 
 struct EnvironmentData {
   long timeStamp;
@@ -77,7 +78,6 @@ public:
     strip->setBrightness(BRIGHTNESS);
     strip->clear();
     strip->show();
-
   }
 
   void loop() {
@@ -88,8 +88,12 @@ public:
 
   //  Handle compressor and fan
   void handleCompressorAndFan() {
-    if (environState.targetTemp){}
+    float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+    if (averageAmbient > (targetTemp - targetOffset)) {
+
+    }
   }
+
 
   //  Handle light behavior
   void handleLights() {
@@ -112,6 +116,24 @@ public:
       readHumidityData();
       refreshTimer->restart();
     }
+  }
+
+  //  Compressor Control
+  void turnOnCompressor() {
+      digitalWrite(COMPRESSOR_RELAY, HIGH);
+  }
+
+  void turnOffCompressor() {
+      digitalWrite(COMPRESSOR_RELAY, LOW);
+  }
+
+  //  Fan Control
+  void turnOnFan() {
+      digitalWrite(FAN_RELAY, HIGH);
+  }
+
+  void turnOffFan() {
+      digitalWrite(FAN_RELAY, LOW);
   }
 
   // Access to Meat Probe and Weight Data
