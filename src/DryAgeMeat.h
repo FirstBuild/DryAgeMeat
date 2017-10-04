@@ -30,17 +30,19 @@
 
 const int selectPins[3] = {S0, S1, S2}; //
 
-struct MeatData {
+struct EnvironmentData {
   float humidityInPercent;
-  float meatTempInFahren;
-  float meatWeightInLbs;
+  float dewPoint;
+  float ambientTemp_DHT11;
+  float ambientTemp_scaleOne;
+  float ambientTemp_scaleTwo;
 };
 
-struct OpenScaleData {
+struct MeatData {
   long timeStamp;
-  float weight;
+  float meatTempInFahren;
   String units;
-  float ambientTempInFahren;
+  float meatWeight;
 };
 
 class DryAgeMeat {
@@ -49,7 +51,7 @@ class DryAgeMeat {
     PietteTech_DHT* DHT;
     Adafruit_NeoPixel* strip;
     MeatData meatChunk;
-    OpenScaleData shelfOne;
+    EnvironmentData environState;
     RBD::Timer* refreshTimer;
     unsigned int DHTnextSampleTime;	    // Next time we want to start sample
     bool bDHTstarted;		                // flag to indicate we started acquisition
@@ -104,36 +106,38 @@ class DryAgeMeat {
       delay(1);
     }
 
-    void readProbeData(MeatData &newData) {
+    void readProbeData(MeatData &newMeatData) {
       Serial1.readStringUntil('\n'); /// Remove Junk Data;
       float probeTempInFahren = Serial1.parseFloat();
 
-      newData.meatTempInFahren = probeTempInFahren;
+      newMeatData.meatTempInFahren = probeTempInFahren;
 
       #ifdef DEBUG
        Serial.print("Probe Temp: ");
-       Serial.println(newData.meatTempInFahren);
+       Serial.println(newMeatData.meatTempInFahren);
       #endif
     }
 
-    void readScaleData(OpenScaleData &newData) {
+    void readScaleData(MeatData &newMeatData, EnvironmentData &enviroData) {
       Serial1.readStringUntil('\n'); /// Remove Junk Data;
       String scaleData = Serial1.readStringUntil('\n');
 
-      newData.timeStamp = commaToken(scaleData).toInt();
-      newData.weight = commaToken(scaleData).toFloat();
-      newData.units = commaToken(scaleData);
-      newData.ambientTempInFahren = (commaToken(scaleData).toFloat() * 1.8) + 32;
+      newMeatData.timeStamp = commaToken(scaleData).toInt();
+      newMeatData.meatWeight = commaToken(scaleData).toFloat();
+      newMeatData.units = commaToken(scaleData);
+
+      enviroData.timeStamp = newMeatData.timeStamp;
+      enviroData.ambientTemp_scaleOne = (commaToken(scaleData).toFloat() * 1.8) + 32;
 
     #ifdef DEBUG
       Serial.print("Time: ");
-      Serial.println(newData.timeStamp);
+      Serial.println(newMeatData.timeStamp);
       Serial.print("Weight: ");
-      Serial.println(newData.weight);
+      Serial.println(newMeatData.weight);
       Serial.print("Units: ");
-      Serial.println(newData.units);
+      Serial.println(newMeatData.units);
       Serial.print("Ambient Temp: ");
-      Serial.println(newData.ambientTempInFahren);
+      Serial.println(newMeatData.ambientTempInFahren);
     #endif
     }
 
