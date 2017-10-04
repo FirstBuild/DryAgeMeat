@@ -89,13 +89,15 @@ public:
   //  Handle compressor
   void handleCompressor() {
     float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-    if (averageAmbient > (targetTemp + targetOffset)) {
+    if (averageAmbient > (environState.targetTemp + targetOffset)) {
       turnCompressorOn();
       #ifdef DEBUG
+
       Serial.println("COMPRESSOR -- ON");
       #endif
-    } else if (averageAmbient < (targetTemp - targetOffset)) {
+    } else if (averageAmbient < (environState.targetTemp - targetOffset)) {
       turnCompressorOff();
+
       #ifdef DEBUG
       Serial.println("COMPRESSOR -- OFF");
       #endif
@@ -107,8 +109,16 @@ public:
   void handleFan() {
     if (doorButton->onReleased()) {
       turnFanOff();
+
+      #ifdef DEBUG
+      Serial.println("FAN -- OFF");
+      #endif
     } else if (doorButton->onPressed()) {
       turnFanOn();
+
+      #ifdef DEBUG
+      Serial.println("FAN -- ON");
+      #endif
     }
   }
 
@@ -117,8 +127,16 @@ public:
   void handleLights() {
     if (doorButton->onReleased()) {
       turnLightsOn();
+
+      #ifdef DEBUG
+      Serial.println("LIGHTS -- ON");
+      #endif
     } else if (doorButton->onPressed()) {
       turnLightsOff();
+
+      #ifdef DEBUG
+      Serial.println("LIGHTS -- OFF");
+      #endif
     }
   }
 
