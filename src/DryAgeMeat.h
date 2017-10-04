@@ -8,7 +8,7 @@
 
 #define DRYAGEMEAT_VERSION_MAJOR 0
 #define DRYAGEMEAT_VERSION_MINOR 0
-#define DRYAGEMEAT_VERSION_PATCH 5
+#define DRYAGEMEAT_VERSION_PATCH 6
 
 // How many leds in your strip?
 #define NUM_LEDS 19
@@ -30,7 +30,7 @@
 #define DHTPIN   A1           	    // Digital pin for communications
 
 const int selectPins[3] = {S0, S1, S2}; //
-const int targetOffset = 10;
+const int targetOffset = 3;
 
 struct EnvironmentData {
   long timeStamp;
@@ -81,7 +81,8 @@ public:
   }
 
   void loop() {
-
+    handleCompressor();
+    handleFan();
     handleLights();
     refreshData();
   }
@@ -102,7 +103,6 @@ public:
       Serial.println("COMPRESSOR -- OFF");
       #endif
     }
-
   }
 
   //  Handle fan
