@@ -4,6 +4,7 @@
 #include "PietteTech_DHT.h"
 #include "neopixel.h"
 #include "RBD_Timer.h"
+#include "RBD_Button.h"
 
 #define DRYAGEMEAT_VERSION_MAJOR 0
 #define DRYAGEMEAT_VERSION_MINOR 0
@@ -15,7 +16,8 @@
 #define BRIGHTNESS 155  /// 60% brightness -- Max value is 255
 
 #define COMPRESSOR_RELAY D6   /// This is Arduino pin D4
-#define FAN_RELAY A5          /// This is Arduin pin D8
+#define FAN_RELAY A5          /// This is Arduino pin D8
+#define DOOR_SWITCH A7        /// This is Arduino pin D2
 
 #define S0 A4
 #define S1 5
@@ -54,6 +56,7 @@ public:
 private:
   RBD::Timer* refreshTimer;
   PietteTech_DHT* DHT;
+  RBD::Button* doorButton;
   Adafruit_NeoPixel* strip;
   bool bDHTstarted = false;		                // flag to indicate we started acquisition
 
@@ -67,6 +70,7 @@ public:
     DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
     strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
     refreshTimer = new RBD::Timer(1000);
+    doorButton = new RBD::Button(DOOR_SWITCH);
 
     strip->begin();
     strip->setBrightness(BRIGHTNESS);
@@ -77,9 +81,20 @@ public:
 
   void loop() {
 
+    handleLights();
     refreshData();
   }
 
+  //  Handle light behavior
+  void handleLights() {
+    if (doorButton.onReleased()) {
+      turnOn();
+    } else if (doorButton.onPressed()) {
+      turnOff();
+    }
+  }
+
+  //  Populate internal data structures with data
   void refreshData() {
     if (refreshTimer->onExpired()) {
       selectMuxPin(2);
@@ -94,6 +109,13 @@ public:
   }
 
   // Access to Meat Probe and Weight Data
+  void setupMux() {
+    for (int i = 0; i < 3; i++) {
+      pinMode(selectPins[i], OUTPUT);
+      digitalWrite(selectPins[i], HIGH);
+    }
+  }
+
   void selectMuxPin(byte pin) {
     if (pin > 7) return; // Exit if pin is out of scope
     for (int i=0; i<3; i++)
@@ -151,13 +173,6 @@ public:
     return result;
   }
 
-  void setupMux() {
-    for (int i = 0; i < 3; i++) {
-      pinMode(selectPins[i], OUTPUT);
-      digitalWrite(selectPins[i], HIGH);
-    }
-  }
-
   // LED Control
   void turnOn() {
     for (int i = 0; i < NUM_LEDS; i++) {
@@ -169,6 +184,41 @@ public:
   void turnOff() {
     strip->clear();
     strip->show();
+  }
+
+  // Humidity Control
+  void readHumidityData(EnvironmentData &enviroData) {
+    // Check if we need to start the next sample
+    if (!bDHTstarted) {		// start the sample
+      Serial.print("\nRetrieving information from sensor\n");
+      DHT->acquire();
+      bDHTstarted = true;
+    } else {
+      //  The following is to retry DHT->acquire if some timing error results.
+      static unsigned long humidityTimeoutTracker = millis();
+      if ((millis() - humidityTimeoutTracker) > 3000) {
+        bDHTstarted = false;
+        humidityTimeoutTracker = millis();
+      }
+    }
+
+    if (!DHT->acquiring() && isDHTReady(DHT->getStatus())) {		// has sample completed?
+
+      enviroData.humidityInPercent = DHT->getHumidity();
+      enviroData.dewPoint = (DHT->getDewPoint() * 1.8) + 32;
+      enviroData.ambientTemp_DHT11 = DHT->getFahrenheit();
+
+      #ifdef DEBUG
+      Serial.print("Humidity (%): ");
+      Serial.println(enviroData.humidityInPercent);
+      Serial.print("Temperature (oF): ");
+      Serial.println(enviroData.ambientTemp_DHT11);
+      Serial.print("Dew Point (oF): ");
+      Serial.println(enviroData.dewPoint);
+      #endif
+
+      bDHTstarted = false;  // reset the sample flag so we can take another
+    }
   }
 
   bool isDHTReady(int statusCode) {
@@ -229,41 +279,6 @@ public:
           break;
       }
       return false;
-  }
-
-  // Humidity Control
-  void readHumidityData(EnvironmentData &enviroData) {
-    // Check if we need to start the next sample
-    if (!bDHTstarted) {		// start the sample
-      Serial.print("\nRetrieving information from sensor\n");
-      DHT->acquire();
-      bDHTstarted = true;
-    } else {
-      //  The following is to retry DHT->acquire if some timing error results. 
-      static unsigned long humidityTimeoutTracker = millis();
-      if ((millis() - humidityTimeoutTracker) > 3000) {
-        bDHTstarted = false;
-        humidityTimeoutTracker = millis();
-      }
-    }
-
-    if (!DHT->acquiring() && isDHTReady(DHT->getStatus())) {		// has sample completed?
-
-      enviroData.humidityInPercent = DHT->getHumidity();
-      enviroData.dewPoint = (DHT->getDewPoint() * 1.8) + 32;
-      enviroData.ambientTemp_DHT11 = DHT->getFahrenheit();
-
-      #ifdef DEBUG
-      Serial.print("Humidity (%): ");
-      Serial.println(enviroData.humidityInPercent);
-      Serial.print("Temperature (oF): ");
-      Serial.println(enviroData.ambientTemp_DHT11);
-      Serial.print("Dew Point (oF): ");
-      Serial.println(enviroData.dewPoint);
-      #endif
-
-      bDHTstarted = false;  // reset the sample flag so we can take another
-    }
   }
 };
 
