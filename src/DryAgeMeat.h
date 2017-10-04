@@ -25,12 +25,12 @@
 
 // system defines
 #define DHTTYPE  DHT11              // Sensor type DHT11/21/22/AM2301/AM2302
-#define DHTPIN   A0           	    // Digital pin for communications
-#define DHT_SAMPLE_INTERVAL   2000  // Sample every two seconds
+#define DHTPIN   A1           	    // Digital pin for communications
 
 const int selectPins[3] = {S0, S1, S2}; //
 
 struct EnvironmentData {
+  long timeStamp;
   float humidityInPercent;
   float dewPoint;
   float ambientTemp_DHT11;
@@ -46,202 +46,225 @@ struct MeatData {
 };
 
 class DryAgeMeat {
-  public:
-    DryAgeMeat(void) { }
-    PietteTech_DHT* DHT;
-    Adafruit_NeoPixel* strip;
-    MeatData meatChunk;
-    EnvironmentData environState;
-    RBD::Timer* refreshTimer;
-    unsigned int DHTnextSampleTime;	    // Next time we want to start sample
-    bool bDHTstarted;		                // flag to indicate we started acquisition
-    int n;                              // counter
+public:
+  DryAgeMeat(void) { }
+  MeatData meatChunk;
+  EnvironmentData environState;
 
-  public:
-    void setup() {
-      Serial.begin(9600);
-      Serial1.begin(57600);
+private:
+  RBD::Timer* refreshTimer;
+  PietteTech_DHT* DHT;
+  Adafruit_NeoPixel* strip;
+  bool bDHTstarted = false;		                // flag to indicate we started acquisition
 
-      setupMux();
+public:
+  void setup() {
+    Serial.begin(9600);
+    Serial1.begin(57600);
 
-      DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
-      strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
-      refreshTimer = new RBD::Timer(1000);
+    setupMux();
 
-      strip->begin();
-      strip->setBrightness(BRIGHTNESS);
-      strip->clear();
-      strip->show();
+    DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
+    strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
+    refreshTimer = new RBD::Timer(1000);
 
-      DHTnextSampleTime = 0;  // Start the first sample immediately
+    strip->begin();
+    strip->setBrightness(BRIGHTNESS);
+    strip->clear();
+    strip->show();
 
+  }
+
+  void loop() {
+
+    refreshData();
+  }
+
+  void refreshData() {
+    if (refreshTimer->onExpired()) {
+      selectMuxPin(2);
+      readProbeData(meatChunk);
+
+      selectMuxPin(0);
+      readScaleData(meatChunk, environState);
+
+      readHumidityData(environState);
+      refreshTimer->restart();
     }
+  }
 
-    void loop() {
-
-      refreshData();
+  // Access to Meat Probe and Weight Data
+  void selectMuxPin(byte pin) {
+    if (pin > 7) return; // Exit if pin is out of scope
+    for (int i=0; i<3; i++)
+    {
+      if (pin & (1<<i))
+      digitalWrite(selectPins[i], HIGH);
+      else
+      digitalWrite(selectPins[i], LOW);
     }
+    delay(1);
+  }
 
-    void refreshData() {
-      if (refreshTimer->onExpired()) {
-        selectMuxPin(2);
-        readProbeData(meatChunk);
+  void readProbeData(MeatData &newMeatData) {
+    Serial1.readStringUntil('\n'); /// Remove Junk Data;
+    float probeTempInFahren = Serial1.parseFloat();
 
-        selectMuxPin(0);
-        readScaleData(shelfOne);
-        refreshTimer->restart();
-      }
-    }
-
-// Access to Meat Probe and Weight Data
-    void selectMuxPin(byte pin) {
-      if (pin > 7) return; // Exit if pin is out of scope
-      for (int i=0; i<3; i++)
-      {
-        if (pin & (1<<i))
-          digitalWrite(selectPins[i], HIGH);
-        else
-          digitalWrite(selectPins[i], LOW);
-      }
-      delay(1);
-    }
-
-    void readProbeData(MeatData &newMeatData) {
-      Serial1.readStringUntil('\n'); /// Remove Junk Data;
-      float probeTempInFahren = Serial1.parseFloat();
-
-      newMeatData.meatTempInFahren = probeTempInFahren;
-
-      #ifdef DEBUG
-       Serial.print("Probe Temp: ");
-       Serial.println(newMeatData.meatTempInFahren);
-      #endif
-    }
-
-    void readScaleData(MeatData &newMeatData, EnvironmentData &enviroData) {
-      Serial1.readStringUntil('\n'); /// Remove Junk Data;
-      String scaleData = Serial1.readStringUntil('\n');
-
-      newMeatData.timeStamp = commaToken(scaleData).toInt();
-      newMeatData.meatWeight = commaToken(scaleData).toFloat();
-      newMeatData.units = commaToken(scaleData);
-
-      enviroData.timeStamp = newMeatData.timeStamp;
-      enviroData.ambientTemp_scaleOne = (commaToken(scaleData).toFloat() * 1.8) + 32;
+    newMeatData.meatTempInFahren = probeTempInFahren;
 
     #ifdef DEBUG
-      Serial.print("Time: ");
-      Serial.println(newMeatData.timeStamp);
-      Serial.print("Weight: ");
-      Serial.println(newMeatData.weight);
-      Serial.print("Units: ");
-      Serial.println(newMeatData.units);
-      Serial.print("Ambient Temp: ");
-      Serial.println(newMeatData.ambientTempInFahren);
+    Serial.print("Probe Temp: ");
+    Serial.println(newMeatData.meatTempInFahren);
     #endif
-    }
+  }
 
-    String commaToken(String &start) {
-      if (start.length() < 1) {
-        return "";
+  void readScaleData(MeatData &newMeatData, EnvironmentData &enviroData) {
+    Serial1.readStringUntil('\n'); /// Remove Junk Data;
+    String scaleData = Serial1.readStringUntil('\n');
+
+    newMeatData.timeStamp = commaToken(scaleData).toInt();
+    newMeatData.meatWeight = commaToken(scaleData).toFloat();
+    newMeatData.units = commaToken(scaleData);
+
+    enviroData.timeStamp = newMeatData.timeStamp;
+    enviroData.ambientTemp_scaleOne = (commaToken(scaleData).toFloat() * 1.8) + 32;
+
+    #ifdef DEBUG
+    Serial.print("Time: ");
+    Serial.println(newMeatData.timeStamp);
+    Serial.print("Weight: ");
+    Serial.println(newMeatData.meatWeight);
+    Serial.print("Units: ");
+    Serial.println(newMeatData.units);
+    Serial.print("Ambient Temp: ");
+    Serial.println(enviroData.ambientTemp_scaleOne);
+    #endif
+  }
+
+  String commaToken(String &start) {
+    if (start.length() < 1) {
+      return "";
+    }
+    int terminatingChar = start.indexOf(',');
+    String result = start.substring(0, terminatingChar);
+    start = start.substring(terminatingChar + 1);
+    return result;
+  }
+
+  void setupMux() {
+    for (int i = 0; i < 3; i++) {
+      pinMode(selectPins[i], OUTPUT);
+      digitalWrite(selectPins[i], HIGH);
+    }
+  }
+
+  // LED Control
+  void turnOn() {
+    for (int i = 0; i < NUM_LEDS; i++) {
+      strip->setColor(i, 255, 255, 255);
+    }
+    strip->show();
+  }
+
+  void turnOff() {
+    strip->clear();
+    strip->show();
+  }
+
+  bool isDHTReady(int statusCode) {
+      switch (statusCode) {
+        case DHTLIB_OK:
+        #ifdef DEBUG
+          Serial.println("OK");
+          return true;
+        #endif
+          break;
+
+        case DHTLIB_ERROR_CHECKSUM:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tChecksum error");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_ISR_TIMEOUT:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tISR time out error");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_RESPONSE_TIMEOUT:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tResponse time out error");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_DATA_TIMEOUT:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tData time out error");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_ACQUIRING:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tAcquiring");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_DELTA:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tDelta time to small");
+        #endif
+          break;
+
+        case DHTLIB_ERROR_NOTSTARTED:
+        #ifdef DEBUG
+          Serial.println("Error\n\r\tNot started");
+        #endif
+          break;
+
+        default:
+        #ifdef DEBUG
+          Serial.println("Unknown error");
+        #endif
+          break;
       }
-      int terminatingChar = start.indexOf(',');
-      String result = start.substring(0, terminatingChar);
-      start = start.substring(terminatingChar + 1);
-      return result;
-    }
+      return false;
+  }
 
-    void setupMux() {
-      for (int i = 0; i < 3; i++) {
-        pinMode(selectPins[i], OUTPUT);
-        digitalWrite(selectPins[i], HIGH);
+  // Humidity Control
+  void readHumidityData(EnvironmentData &enviroData) {
+    // Check if we need to start the next sample
+    if (!bDHTstarted) {		// start the sample
+      Serial.print("\nRetrieving information from sensor\n");
+      DHT->acquire();
+      bDHTstarted = true;
+    } else {
+      //  The following is to retry DHT->acquire if some timing error results. 
+      static unsigned long humidityTimeoutTracker = millis();
+      if ((millis() - humidityTimeoutTracker) > 3000) {
+        bDHTstarted = false;
+        humidityTimeoutTracker = millis();
       }
     }
 
-// LED Control
-    void turnOn() {
-      for (int i = 0; i < NUM_LEDS; i++) {
-        strip->setColor(i, 255, 255, 255);
-      }
-      strip->show();
+    if (!DHT->acquiring() && isDHTReady(DHT->getStatus())) {		// has sample completed?
+
+      enviroData.humidityInPercent = DHT->getHumidity();
+      enviroData.dewPoint = (DHT->getDewPoint() * 1.8) + 32;
+      enviroData.ambientTemp_DHT11 = DHT->getFahrenheit();
+
+      #ifdef DEBUG
+      Serial.print("Humidity (%): ");
+      Serial.println(enviroData.humidityInPercent);
+      Serial.print("Temperature (oF): ");
+      Serial.println(enviroData.ambientTemp_DHT11);
+      Serial.print("Dew Point (oF): ");
+      Serial.println(enviroData.dewPoint);
+      #endif
+
+      bDHTstarted = false;  // reset the sample flag so we can take another
     }
-
-    void turnOff() {
-      strip->clear();
-    }
-
-// Humidity Control
-    void humiditySampler() {
-      // Check if we need to start the next sample
-      if (millis() > DHTnextSampleTime) {
-        if (!bDHTstarted) {		// start the sample
-          Serial.print("\n");
-          Serial.print(n);
-          Serial.print(": Retrieving information from sensor: ");
-          DHT->acquire();
-          bDHTstarted = true;
-        }
-
-        if (!DHT->acquiring()) {		// has sample completed?
-
-          // get DHT status
-          int result = DHT->getStatus();
-
-          Serial.print("Read sensor: ");
-          switch (result) {
-            case DHTLIB_OK:
-            Serial.println("OK");
-            break;
-            case DHTLIB_ERROR_CHECKSUM:
-            Serial.println("Error\n\r\tChecksum error");
-            break;
-            case DHTLIB_ERROR_ISR_TIMEOUT:
-            Serial.println("Error\n\r\tISR time out error");
-            break;
-            case DHTLIB_ERROR_RESPONSE_TIMEOUT:
-            Serial.println("Error\n\r\tResponse time out error");
-            break;
-            case DHTLIB_ERROR_DATA_TIMEOUT:
-            Serial.println("Error\n\r\tData time out error");
-            break;
-            case DHTLIB_ERROR_ACQUIRING:
-            Serial.println("Error\n\r\tAcquiring");
-            break;
-            case DHTLIB_ERROR_DELTA:
-            Serial.println("Error\n\r\tDelta time to small");
-            break;
-            case DHTLIB_ERROR_NOTSTARTED:
-            Serial.println("Error\n\r\tNot started");
-            break;
-            default:
-            Serial.println("Unknown error");
-            break;
-          }
-
-          Serial.print("Humidity (%): ");
-          Serial.println(DHT->getHumidity(), 2);
-
-          Serial.print("Temperature (oC): ");
-          Serial.println(DHT->getCelsius(), 2);
-
-          Serial.print("Temperature (oF): ");
-          Serial.println(DHT->getFahrenheit(), 2);
-
-          Serial.print("Temperature (K): ");
-          Serial.println(DHT->getKelvin(), 2);
-
-          Serial.print("Dew Point (oC): ");
-          Serial.println(DHT->getDewPoint());
-
-          Serial.print("Dew Point Slow (oC): ");
-          Serial.println(DHT->getDewPointSlow());
-
-          n++;  // increment counter
-          bDHTstarted = false;  // reset the sample flag so we can take another
-          DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
-        }
-      }
-    }
+  }
 };
 
 #endif /* DRYAGEMEAT_H */
