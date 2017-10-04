@@ -38,6 +38,7 @@ struct EnvironmentData {
   float ambientTemp_DHT11;
   float ambientTemp_scaleOne;
   float ambientTemp_scaleTwo;
+  float targetTemp = 35;
 };
 
 struct MeatData {
@@ -85,11 +86,16 @@ public:
     refreshData();
   }
 
+  //  Handle compressor and fan
+  void handleCompressorAndFan() {
+    if (environState.targetTemp){}
+  }
+
   //  Handle light behavior
   void handleLights() {
-    if (doorButton.onReleased()) {
+    if (doorButton->onReleased()) {
       turnOn();
-    } else if (doorButton.onPressed()) {
+    } else if (doorButton->onPressed()) {
       turnOff();
     }
   }
@@ -101,9 +107,9 @@ public:
       readProbeData(meatChunk);
 
       selectMuxPin(0);
-      readScaleData(meatChunk, environState);
+      readScaleData(meatChunk);
 
-      readHumidityData(environState);
+      readHumidityData();
       refreshTimer->restart();
     }
   }
@@ -140,7 +146,7 @@ public:
     #endif
   }
 
-  void readScaleData(MeatData &newMeatData, EnvironmentData &enviroData) {
+  void readScaleData(MeatData &newMeatData) {
     Serial1.readStringUntil('\n'); /// Remove Junk Data;
     String scaleData = Serial1.readStringUntil('\n');
 
@@ -148,8 +154,8 @@ public:
     newMeatData.meatWeight = commaToken(scaleData).toFloat();
     newMeatData.units = commaToken(scaleData);
 
-    enviroData.timeStamp = newMeatData.timeStamp;
-    enviroData.ambientTemp_scaleOne = (commaToken(scaleData).toFloat() * 1.8) + 32;
+    environState.timeStamp = newMeatData.timeStamp;
+    environState.ambientTemp_scaleOne = (commaToken(scaleData).toFloat() * 1.8) + 32;
 
     #ifdef DEBUG
     Serial.print("Time: ");
@@ -159,7 +165,7 @@ public:
     Serial.print("Units: ");
     Serial.println(newMeatData.units);
     Serial.print("Ambient Temp: ");
-    Serial.println(enviroData.ambientTemp_scaleOne);
+    Serial.println(environState.ambientTemp_scaleOne);
     #endif
   }
 
@@ -187,7 +193,7 @@ public:
   }
 
   // Humidity Control
-  void readHumidityData(EnvironmentData &enviroData) {
+  void readHumidityData() {
     // Check if we need to start the next sample
     if (!bDHTstarted) {		// start the sample
       Serial.print("\nRetrieving information from sensor\n");
@@ -204,17 +210,17 @@ public:
 
     if (!DHT->acquiring() && isDHTReady(DHT->getStatus())) {		// has sample completed?
 
-      enviroData.humidityInPercent = DHT->getHumidity();
-      enviroData.dewPoint = (DHT->getDewPoint() * 1.8) + 32;
-      enviroData.ambientTemp_DHT11 = DHT->getFahrenheit();
+      environState.humidityInPercent = DHT->getHumidity();
+      environState.dewPoint = (DHT->getDewPoint() * 1.8) + 32;
+      environState.ambientTemp_DHT11 = DHT->getFahrenheit();
 
       #ifdef DEBUG
       Serial.print("Humidity (%): ");
-      Serial.println(enviroData.humidityInPercent);
+      Serial.println(environState.humidityInPercent);
       Serial.print("Temperature (oF): ");
-      Serial.println(enviroData.ambientTemp_DHT11);
+      Serial.println(environState.ambientTemp_DHT11);
       Serial.print("Dew Point (oF): ");
-      Serial.println(enviroData.dewPoint);
+      Serial.println(environState.dewPoint);
       #endif
 
       bDHTstarted = false;  // reset the sample flag so we can take another
