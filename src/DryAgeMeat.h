@@ -88,10 +88,18 @@ public:
 
   //  Handle compressor
   void handleCompressor() {
-  //  float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-  //  if (averageAmbient > (targetTemp - targetOffset)) {
-//
-  //  }
+    float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+    if (averageAmbient > (targetTemp + targetOffset)) {
+      turnCompressorOn();
+      #ifdef DEBUG
+      Serial.println("COMPRESSOR -- ON");
+      #endif
+    } else if (averageAmbient < (targetTemp - targetOffset)) {
+      turnCompressorOff();
+      #ifdef DEBUG
+      Serial.println("COMPRESSOR -- OFF");
+      #endif
+    }
 
   }
 
