@@ -1,0 +1,18 @@
+{
+  "event": "dryage-tx-data",
+  "url": "https://requestb.in/18m2pwv1",
+  "requestType": "POST",
+  "headers": {
+    "x-api-key": "null"
+  },
+  "json": {
+    "pub_time": "{{PARTICLE_PUBLISHED_AT}}",
+    "hmdty": "{{hmdty_data}}",
+    "mt_tmp": "{{mt_tmp_data}}",
+    "mt_wt": "{{mt_wt_data}}",
+    "amb_tmp": "{{amb_tmp_data}}"
+  },
+  "mydevices": false,
+  "noDefaults": true,
+  "rejectUnauthorized": true
+}
