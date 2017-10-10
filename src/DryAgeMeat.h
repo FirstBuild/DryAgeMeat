@@ -36,6 +36,7 @@ struct EnvironmentData {
   long timeStamp;
   float humidityInPercent;
   float dewPoint;
+  float averageAmbient;
   float ambientTemp_DHT11;
   float ambientTemp_scaleOne;
   float ambientTemp_scaleTwo;
@@ -87,16 +88,25 @@ public:
     refreshData();
   }
 
+  void updateAmbientTemperatureWithFilter() {
+    float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+    if (environState.averageAmbient == 0) {
+      environState.averageAmbient = newAverageAmbientReading;
+    }  else {
+      environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
+    }
+  }
+
   //  Handle compressor
   void handleCompressor() {
-    float averageAmbient = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-    if (averageAmbient > (environState.targetTemp + targetOffset)) {
+    updateAmbientTemperatureWithFilter();
+    if (environState.averageAmbient > (environState.targetTemp + targetOffset)) {
       turnCompressorOn();
       #ifdef DEBUG
 
       Serial.println("COMPRESSOR -- ON");
       #endif
-    } else if (averageAmbient < (environState.targetTemp - targetOffset)) {
+    } else if (environState.averageAmbient < (environState.targetTemp - targetOffset)) {
       turnCompressorOff();
 
       #ifdef DEBUG
