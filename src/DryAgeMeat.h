@@ -58,6 +58,7 @@ public:
 
 private:
   RBD::Timer* refreshTimer;
+  RBD::Timer* dataTransmitTimer;
   PietteTech_DHT* DHT;
   RBD::Button* doorButton;
   Adafruit_NeoPixel* strip;
@@ -73,6 +74,7 @@ public:
     DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
     strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
     refreshTimer = new RBD::Timer(1000);
+    dataTransmitTimer = new RBD::Timer(60000);
     doorButton = new RBD::Button(DOOR_SWITCH);
 
     strip->begin();
@@ -82,12 +84,14 @@ public:
   }
 
   void loop() {
+    publishMeatData();
     handleCompressor();
     handleFan();
     handleLights();
     refreshData();
   }
 
+private:
   void updateAmbientTemperatureWithFilter() {
     float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
     if (environState.averageAmbient == 0) {
@@ -131,7 +135,6 @@ public:
       #endif
     }
   }
-
 
   //  Handle light behavior
   void handleLights() {
@@ -245,6 +248,16 @@ public:
     String result = start.substring(0, terminatingChar);
     start = start.substring(terminatingChar + 1);
     return result;
+  }
+
+  //  Transmit data using webhook to AWS API Gateway Endpoint
+  void publishMeatData() {
+    if (dataTransmitTimer->onExpired()) {
+      String transmitData = String::format("{\"hmdty_data\": \"%.2f\", \"mt_tmp_data\": \"%.2f\", \"mt_wt_data\": \"%.2f\", \"amb_tmp_data\": \"%.2f\"}",
+        environState.humidityInPercent, meatChunk.meatTempInFahren, meatChunk.meatWeight, environState.averageAmbient);
+      Particle.publish("dryage-tx-data", transmitData.c_str(), PRIVATE, WITH_ACK);
+      dataTransmitTimer->restart();
+    }
   }
 
   // LED Control
