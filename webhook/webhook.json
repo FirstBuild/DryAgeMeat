@@ -1,9 +1,9 @@
 {
   "event": "dryage-tx-data",
-  "url": "https://requestb.in/18m2pwv1",
+  "url": "[SEE PROJECT TASK PAGE]",
   "requestType": "POST",
   "headers": {
-    "x-api-key": "null"
+    "x-api-key": "[SEE PROJECT TASK PAGE]"
   },
   "json": {
     "pub_time": "{{PARTICLE_PUBLISHED_AT}}",
