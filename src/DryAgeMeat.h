@@ -23,11 +23,14 @@
 #define S1 5
 #define S2 2
 
-#define DEBUG
-
 // system defines
 #define DHTTYPE  DHT11              // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN   A1           	    // Digital pin for communications
+
+#define DEBUG
+
+const long REFRESH_TIMER_TIMEOUT = 10000;
+const long TRANSMIT_TIMER_TIMEOUT = 60000;
 
 const int selectPins[3] = {S0, S1, S2}; //
 const int targetOffset = 3;
@@ -76,8 +79,8 @@ public:
 
     DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
     strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
-    refreshTimer = new RBD::Timer(1000);
-    dataTransmitTimer = new RBD::Timer(60000);
+    refreshTimer = new RBD::Timer(REFRESH_TIMER_TIMEOUT);
+    dataTransmitTimer = new RBD::Timer(TRANSMIT_TIMER_TIMEOUT);
     doorButton = new RBD::Button(DOOR_SWITCH);
 
     strip->begin();
