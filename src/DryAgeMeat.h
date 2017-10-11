@@ -90,8 +90,7 @@ public:
   void loop() {
     publishMeatData();
     handleCompressor();
-    handleFan();
-    handleLights();
+    handleDoorSwitch();
     refreshData();
   }
 
@@ -124,35 +123,22 @@ private:
   }
 
   //  Handle fan
-  void handleFan() {
+  void handleDoorSwitch() {
     if (doorButton->onReleased()) {
       turnFanOff();
-
-      #ifdef DEBUG
-      Serial.println("FAN -- OFF");
-      #endif
-    } else if (doorButton->onPressed()) {
-      turnFanOn();
-
-      #ifdef DEBUG
-      Serial.println("FAN -- ON");
-      #endif
-    }
-  }
-
-  //  Handle light behavior
-  void handleLights() {
-    if (doorButton->onReleased()) {
       turnLightsOn();
 
       #ifdef DEBUG
       Serial.println("LIGHTS -- ON");
+      Serial.println("FAN -- OFF");
       #endif
     } else if (doorButton->onPressed()) {
+      turnFanOn();
       turnLightsOff();
 
       #ifdef DEBUG
       Serial.println("LIGHTS -- OFF");
+      Serial.println("FAN -- ON");
       #endif
     }
   }
