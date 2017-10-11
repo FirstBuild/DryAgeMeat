@@ -17,7 +17,7 @@
 
 #define COMPRESSOR_RELAY D6   /// This is Arduino pin D4
 #define FAN_RELAY A5          /// This is Arduino pin D8
-#define DOOR_SWITCH A7        /// This is Arduino pin D2
+#define DOOR_SWITCH A0        /// This is Arduino pin D3
 
 #define S0 A4
 #define S1 5
@@ -71,6 +71,9 @@ public:
 
     setupMux();
 
+    pinMode(COMPRESSOR_RELAY, OUTPUT);
+    pinMode(FAN_RELAY, OUTPUT);
+
     DHT = new PietteTech_DHT(DHTPIN, DHTTYPE);
     strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
     refreshTimer = new RBD::Timer(1000);
@@ -81,6 +84,7 @@ public:
     strip->setBrightness(BRIGHTNESS);
     strip->clear();
     strip->show();
+    Serial.println("BEGIN");
   }
 
   void loop() {
@@ -202,7 +206,6 @@ private:
       else
       digitalWrite(selectPins[i], LOW);
     }
-    delay(1);
   }
 
   void readProbeData(MeatData &newMeatData) {
@@ -266,11 +269,19 @@ private:
       strip->setColor(i, 255, 255, 255);
     }
     strip->show();
+
+    #ifdef DEBUG
+    Serial.println("LIGHTS - ON");
+    #endif
   }
 
   void turnLightsOff() {
     strip->clear();
     strip->show();
+
+    #ifdef DEBUG
+    Serial.println("LIGHTS - OFF");
+    #endif
   }
 
   // Humidity Control
