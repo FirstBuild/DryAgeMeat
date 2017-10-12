@@ -29,8 +29,9 @@
 
 #define DEBUG
 
-const long REFRESH_TIMER_TIMEOUT = 10000;
+const long REFRESH_TIMER_TIMEOUT = 3000;
 const long TRANSMIT_TIMER_TIMEOUT = 60000;
+const long UPDATE_INTERVAL = 1000;
 
 const int selectPins[3] = {S0, S1, S2}; //
 const int targetOffset = 3;
@@ -87,7 +88,6 @@ public:
     strip->setBrightness(BRIGHTNESS);
     strip->clear();
     strip->show();
-    Serial.println("BEGIN");
   }
 
   void loop() {
@@ -99,12 +99,29 @@ public:
 
 private:
   void updateAmbientTemperatureWithFilter() {
-    float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-    if (environState.averageAmbient == 0) {
-      environState.averageAmbient = newAverageAmbientReading;
-    }  else {
-      environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
+    static unsigned long updateTracker = millis();
+    if ((millis() - updateTracker) > UPDATE_INTERVAL) {
+      float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+      if (environState.averageAmbient == 0) {
+        environState.averageAmbient = newAverageAmbientReading;
+      }  else {
+        environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
+      }
+      printTemperatureReadings();
+      updateTracker = millis();
     }
+  }
+
+  void printTemperatureReadings() {
+    Serial.print("Ambient Temp - DHT11: ");
+    Serial.println(environState.ambientTemp_DHT11);
+
+    Serial.print("Ambient Temp - Scale 1: ");
+    Serial.println(environState.ambientTemp_scaleOne);
+
+    Serial.print("Ambient Temp - Average: ");
+    Serial.println(environState.averageAmbient);
+    Serial.println("\n");
   }
 
   //  Handle compressor
@@ -112,8 +129,8 @@ private:
     updateAmbientTemperatureWithFilter();
     if (environState.averageAmbient > (environState.targetTemp + targetOffset)) {
       turnCompressorOn();
-      #ifdef DEBUG
 
+      #ifdef DEBUG
       Serial.println("COMPRESSOR -- ON");
       #endif
     } else if (environState.averageAmbient < (environState.targetTemp - targetOffset)) {
@@ -195,6 +212,7 @@ private:
       else
       digitalWrite(selectPins[i], LOW);
     }
+    delay(20);
   }
 
   void readProbeData(MeatData &newMeatData) {
@@ -210,8 +228,14 @@ private:
   }
 
   void readScaleData(MeatData &newMeatData) {
-    Serial1.readStringUntil('\n'); /// Remove Junk Data;
+    // Empty Serial1 buffer of junk data.
+    while(Serial1.available()) {
+      Serial1.read();
+    }
+
     String scaleData = Serial1.readStringUntil('\n');
+
+    Serial.println(scaleData);
 
     newMeatData.timeStamp = commaToken(scaleData).toInt();
     newMeatData.meatWeight = commaToken(scaleData).toFloat();
@@ -236,6 +260,7 @@ private:
     if (start.length() < 1) {
       return "";
     }
+
     int terminatingChar = start.indexOf(',');
     String result = start.substring(0, terminatingChar);
     start = start.substring(terminatingChar + 1);
