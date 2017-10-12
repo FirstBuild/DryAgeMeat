@@ -31,6 +31,7 @@
 
 const long REFRESH_TIMER_TIMEOUT = 3000;
 const long TRANSMIT_TIMER_TIMEOUT = 60000;
+const long DHT_11_TIMER_TIMEOUT = 2500;
 
 const int selectPins[3] = {S0, S1, S2}; //
 const int targetOffset = 3;
@@ -62,6 +63,7 @@ public:
 private:
   RBD::Timer* refreshTimer;
   RBD::Timer* dataTransmitTimer;
+  RBD::Timer* dht11Timer;
   PietteTech_DHT* DHT;
   RBD::Button* doorButton;
   Adafruit_NeoPixel* strip;
@@ -81,6 +83,7 @@ public:
     strip = new Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, WS2812B);
     refreshTimer = new RBD::Timer(REFRESH_TIMER_TIMEOUT);
     dataTransmitTimer = new RBD::Timer(TRANSMIT_TIMER_TIMEOUT);
+    dht11Timer = new RBD::Timer(DHT_11_TIMER_TIMEOUT);
     doorButton = new RBD::Button(DOOR_SWITCH);
 
     strip->begin();
@@ -173,9 +176,10 @@ private:
       readScaleData(meatChunk);
 
       readHumidityData();
-      refreshTimer->restart();
 
       updateAmbientTemperatureWithFilter();
+
+      refreshTimer->restart();
     }
   }
 
@@ -299,15 +303,18 @@ private:
     // Check if we need to start the next sample
     if (!bDHTstarted) {		// start the sample
       Serial.print("\nRetrieving information from sensor\n");
-      DHT->acquire();
+      DHT->acquireAndWait(100);
       bDHTstarted = true;
-    } else {
-      //  The following is to retry DHT->acquire if some timing error results.
-      static unsigned long humidityTimeoutTracker = millis();
-      if ((millis() - humidityTimeoutTracker) > 3000) {
-        bDHTstarted = false;
-        humidityTimeoutTracker = millis();
-      }
+      dht11Timer->restart();
+    }
+
+    //  The following is to retry DHT->acquire if some timing error results.
+    if (dht11Timer->onExpired() && DHT->acquiring()) {
+      bDHTstarted = false;
+
+      #ifdef DEBUG
+      Serial.println("DHT11 TIMER TIMEOUT");
+      #endif
     }
 
     if (!DHT->acquiring() && isDHTReady(DHT->getStatus())) {		// has sample completed?
@@ -330,9 +337,6 @@ private:
   }
 
   bool isDHTReady(int statusCode) {
-      if (statusCode != DHTLIB_OK) {
-        bDHTstarted = false;
-      }
       switch (statusCode) {
         case DHTLIB_OK:
         #ifdef DEBUG
@@ -388,6 +392,9 @@ private:
           Serial.println("Unknown error");
         #endif
           break;
+      }
+      if (statusCode != DHTLIB_OK) {
+        bDHTstarted = false;
       }
       return false;
   }
