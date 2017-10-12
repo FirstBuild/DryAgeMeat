@@ -216,7 +216,11 @@ private:
   }
 
   void readProbeData(MeatData &newMeatData) {
-    Serial1.readStringUntil('\n'); /// Remove Junk Data;
+    // Empty Serial1 buffer of junk data.
+    while(Serial1.available()) {
+      Serial1.read();
+    }
+    
     float probeTempInFahren = Serial1.parseFloat();
 
     newMeatData.meatTempInFahren = probeTempInFahren;
