@@ -91,7 +91,7 @@ public:
   }
 
   void loop() {
-    publishMeatData();
+    //publishMeatData();
     handleCompressor();
     handleDoorSwitch();
     refreshData();
@@ -127,18 +127,22 @@ private:
   //  Handle compressor
   void handleCompressor() {
     updateAmbientTemperatureWithFilter();
-    if (environState.averageAmbient > (environState.targetTemp + targetOffset)) {
+
+    static bool updated = false;
+    if (environState.averageAmbient > (environState.targetTemp + targetOffset) && !updated) {
       turnCompressorOn();
 
       #ifdef DEBUG
       Serial.println("COMPRESSOR -- ON");
       #endif
-    } else if (environState.averageAmbient < (environState.targetTemp - targetOffset)) {
+      updated = true;
+    } else if (environState.averageAmbient < (environState.targetTemp - targetOffset) && updated) {
       turnCompressorOff();
 
       #ifdef DEBUG
       Serial.println("COMPRESSOR -- OFF");
       #endif
+      updated = false;
     }
   }
 
@@ -220,7 +224,7 @@ private:
     while(Serial1.available()) {
       Serial1.read();
     }
-    
+
     float probeTempInFahren = Serial1.parseFloat();
 
     newMeatData.meatTempInFahren = probeTempInFahren;
@@ -287,19 +291,11 @@ private:
       strip->setColor(i, 255, 255, 255);
     }
     strip->show();
-
-    #ifdef DEBUG
-    Serial.println("LIGHTS - ON");
-    #endif
   }
 
   void turnLightsOff() {
     strip->clear();
     strip->show();
-
-    #ifdef DEBUG
-    Serial.println("LIGHTS - OFF");
-    #endif
   }
 
   // Humidity Control
@@ -338,6 +334,9 @@ private:
   }
 
   bool isDHTReady(int statusCode) {
+      if (statusCode != DHTLIB_OK) {
+        bDHTstarted = false;
+      }
       switch (statusCode) {
         case DHTLIB_OK:
         #ifdef DEBUG
