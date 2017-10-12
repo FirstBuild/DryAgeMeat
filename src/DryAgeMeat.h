@@ -243,8 +243,6 @@ private:
 
     String scaleData = Serial1.readStringUntil('\n');
 
-    Serial.println(scaleData);
-
     newMeatData.timeStamp = commaToken(scaleData).toInt();
     newMeatData.meatWeight = commaToken(scaleData).toFloat();
     newMeatData.units = commaToken(scaleData);
