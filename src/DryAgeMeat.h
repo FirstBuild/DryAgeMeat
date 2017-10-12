@@ -31,7 +31,6 @@
 
 const long REFRESH_TIMER_TIMEOUT = 3000;
 const long TRANSMIT_TIMER_TIMEOUT = 60000;
-const long UPDATE_INTERVAL = 1000;
 
 const int selectPins[3] = {S0, S1, S2}; //
 const int targetOffset = 3;
@@ -99,21 +98,16 @@ public:
 
 private:
   void updateAmbientTemperatureWithFilter() {
-    static unsigned long updateTracker = millis();
-    if ((millis() - updateTracker) > UPDATE_INTERVAL) {
-      float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
-      if (environState.averageAmbient == 0) {
-        environState.averageAmbient = newAverageAmbientReading;
-      }  else {
-        environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
-      }
-
-      #ifdef DEBUG
-      printTemperatureReadings();
-      #endif
-
-      updateTracker = millis();
+    float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+    if (environState.averageAmbient == 0) {
+      environState.averageAmbient = newAverageAmbientReading;
+    }  else {
+      environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
     }
+
+    #ifdef DEBUG
+    printTemperatureReadings();
+    #endif
   }
 
   void printTemperatureReadings() {
@@ -182,6 +176,8 @@ private:
 
       readHumidityData();
       refreshTimer->restart();
+
+      updateAmbientTemperatureWithFilter();
     }
   }
 
