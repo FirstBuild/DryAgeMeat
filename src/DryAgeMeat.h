@@ -107,7 +107,11 @@ private:
       }  else {
         environState.averageAmbient = (environState.averageAmbient * .9) + (newAverageAmbientReading * .1);
       }
+
+      #ifdef DEBUG
       printTemperatureReadings();
+      #endif
+
       updateTracker = millis();
     }
   }
