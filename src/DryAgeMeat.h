@@ -13,7 +13,7 @@
 // How many leds in your strip?
 #define NUM_LEDS 19
 #define DATA_PIN D7
-#define BRIGHTNESS 155  /// 60% brightness -- Max value is 255
+#define BRIGHTNESS 100  /// 39% brightness -- Max value is 255
 
 #define COMPRESSOR_RELAY D6   /// This is Arduino pin D4
 #define FAN_RELAY A5          /// This is Arduino pin D8
