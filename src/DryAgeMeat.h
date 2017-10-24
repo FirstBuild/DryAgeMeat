@@ -34,7 +34,7 @@ const long TRANSMIT_TIMER_TIMEOUT = 60000;
 const long DHT_11_TIMER_TIMEOUT = 2500;
 
 const int selectPins[3] = {S0, S1, S2}; //
-const int targetOffset = 3;
+const int targetOffset = 2;
 
 struct EnvironmentData {
   long timeStamp;
