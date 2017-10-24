@@ -282,8 +282,8 @@ private:
         environState.humidityInPercent, meatChunk.meatTempInFahren, meatChunk.meatWeight, environState.averageAmbient);
       if (Particle.connected()) {
          Particle.publish("dryage-tx-data", transmitData.c_str(), PRIVATE, WITH_ACK);
-         dataTransmitTimer->restart();
       }
+      dataTransmitTimer->restart();
     }
   }
 
