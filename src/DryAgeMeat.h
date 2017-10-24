@@ -101,7 +101,7 @@ public:
 
 private:
   void updateAmbientTemperatureWithFilter() {
-    float newAverageAmbientReading = (environState.ambientTemp_scaleOne + environState.ambientTemp_DHT11) / 2;
+    float newAverageAmbientReading =  environState.ambientTemp_DHT11;
     if (environState.averageAmbient == 0) {
       environState.averageAmbient = newAverageAmbientReading;
     }  else {
