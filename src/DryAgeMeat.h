@@ -71,7 +71,7 @@ private:
 
 public:
   void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial1.begin(57600);
 
     setupMux();
@@ -280,8 +280,10 @@ private:
     if (dataTransmitTimer->onExpired()) {
       String transmitData = String::format("{\"hmdty_data\": \"%.2f\", \"mt_tmp_data\": \"%.2f\", \"mt_wt_data\": \"%.2f\", \"amb_tmp_data\": \"%.2f\"}",
         environState.humidityInPercent, meatChunk.meatTempInFahren, meatChunk.meatWeight, environState.averageAmbient);
-      Particle.publish("dryage-tx-data", transmitData.c_str(), PRIVATE, WITH_ACK);
-      dataTransmitTimer->restart();
+      if (Particle.connected()) {
+         Particle.publish("dryage-tx-data", transmitData.c_str(), PRIVATE, WITH_ACK);
+         dataTransmitTimer->restart();
+      }
     }
   }
 
@@ -302,7 +304,7 @@ private:
   void readHumidityData() {
     // Check if we need to start the next sample
     if (!bDHTstarted) {		// start the sample
-      Serial.print("\nRetrieving information from sensor\n");
+      Serial.println("\nRetrieving information from sensor\n");
       DHT->acquireAndWait(100);
       bDHTstarted = true;
       dht11Timer->restart();

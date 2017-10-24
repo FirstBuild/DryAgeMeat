@@ -9,6 +9,8 @@
 
 DryAgeMeat dryAgeMeat;
 
+SYSTEM_THREAD(ENABLED);
+
 void setup(void) {
   dryAgeMeat.setup();
 }
