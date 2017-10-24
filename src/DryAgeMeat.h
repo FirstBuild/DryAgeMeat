@@ -17,7 +17,7 @@
 
 #define COMPRESSOR_RELAY D6   /// This is Arduino pin D4
 #define FAN_RELAY A5          /// This is Arduino pin D8
-#define DOOR_SWITCH A0        /// This is Arduino pin D3
+#define DOOR_SWITCH A0        
 
 #define S0 A4
 #define S1 5
