@@ -15,7 +15,7 @@
 #define DATA_PIN D7
 #define BRIGHTNESS 100  /// 39% brightness -- Max value is 255
 
-#define COMPRESSOR_RELAY D6   /// This is Arduino pin D4
+#define COMPRESSOR_RELAY 6   /// This is Arduino pin D4
 #define FAN_RELAY A5          /// This is Arduino pin D8
 #define DOOR_SWITCH A0        
 
@@ -127,21 +127,21 @@ private:
 
   //  Handle compressor
   void handleCompressor() {
-    static bool updated = false;
-    if (environState.averageAmbient > (environState.targetTemp + targetOffset) && !updated) {
+    //static bool updated = false;
+    if (environState.averageAmbient > (environState.targetTemp + targetOffset)) { // && !updated) {
       turnCompressorOn();
 
       #ifdef DEBUG
       Serial.println("COMPRESSOR -- ON");
       #endif
-      updated = true;
-    } else if (environState.averageAmbient < (environState.targetTemp - targetOffset) && updated) {
+      //updated = true;
+    } else if (environState.averageAmbient < (environState.targetTemp - targetOffset)) { // && updated) {
       turnCompressorOff();
 
       #ifdef DEBUG
       Serial.println("COMPRESSOR -- OFF");
       #endif
-      updated = false;
+      //updated = false;
     }
   }
 
