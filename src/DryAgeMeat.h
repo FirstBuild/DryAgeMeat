@@ -44,7 +44,7 @@ struct EnvironmentData {
   float ambientTemp_DHT11;
   float ambientTemp_scaleOne;
   float ambientTemp_scaleTwo;
-  float targetTemp = 35;
+  float targetTemp = 37;
 };
 
 struct MeatData {
