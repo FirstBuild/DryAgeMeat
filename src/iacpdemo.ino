@@ -14,10 +14,8 @@ MIT license, all text above must be included in any redistribution
 ****************************************************/
 
 
-#include "elapsedMicros.h"
 #include "SdFat.h"
 #include <Adafruit_FT6206.h>
-//#include <QueueTracker.h>
 
 #if defined(PARTICLE)
 
@@ -47,6 +45,8 @@ MIT license, all text above must be included in any redistribution
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
 
+#define SD_CS A0
+
 // TFT display and SD card will share the hardware SPI interface.
 // Hardware SPI pins are specific to the Arduino board type and
 // cannot be remapped to alternate pins.  For Arduino Uno,
@@ -61,25 +61,15 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 // Capacitive Touchscreen object
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
-#define SD_CS A0
 SdFat SD;
 File file;
-const uint8_t chipSelect = A0;
-bool buffSwitch = false;
-bool isBuff2Full = false;
-bool buffReady = true;
 volatile bool IsDmaReady = true;
 bool resumeFlag = false;
-//QueueTracker<uint8_t*> bufferFillManager(3);
-//QueueTracker<uint8_t*> bufferSendManager(3);
 std::queue<uint8_t*> bufferFillManager;
 std::queue<uint8_t*> bufferSendManager;
 uint16_t transferProgressIndex = 0;
 
-//#define USE_MULTI_BLOCK_IO 1
 void setup(void) {
-  //WiFi.listen();
-
   Serial.begin(9600);
   SPI.setClockSpeed(30, MHZ);
 
@@ -91,23 +81,10 @@ void setup(void) {
     Serial.println("Touchscreen started.");
   }
   tft.fillScreen(ILI9341_BLACK);
-  //tft.setRotation(1);
-  // Wait for USB Serial
-
-  // Create or open the file.
 
   Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS, SPI_FULL_SPEED)) {
-
     SD.errorPrint("initFail");
-
-    Serial.println("Resetting peripherals for any CS devices");
-
-    if (!SD.begin(SD_CS)) {
-      Serial.println("Retry failed!");
-    } else {
-      Serial.println("Retry success!");
-    }
   }
   Serial.println("OK!");
 }
@@ -121,22 +98,20 @@ void loop() {
       if (flip) {
         flip = false;
         //tft.writecommand(ILI9341_DISPOFF);
-        bmpDraw("purple.bmp", 0, 0);
-
+        bmpDraw("unitUI1_F.bmp", 0, 0);
         //tft.fillRedScreen(ILI9341_RED);
         //tft.writecommand(ILI9341_DISPON);
       } else {
         flip = true;
         //tft.writecommand(ILI9341_DISPOFF);
-        tft.fillScreen(ILI9341_BLACK);
-      //  bmpDraw("purple.bmp", 0, 0);
+        bmpDraw("unitUI2_F.bmp", 0, 0);
+        //  bmpDraw("purple.bmp", 0, 0);
         //tft.writecommand(ILI9341_DISPON);
       }
       timer = millis();
     }
   }
 }
-
 
 // This function opens a Windows Bitmap (BMP) file and
 // displays it at the given coordinates.  It's sped up
@@ -172,8 +147,10 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
   uint16_t txBufferLen = 2 * 240 * NUM_OF_ROWS;
   static uint8_t txBuffer1[2 * 240 * 6];
   static uint8_t txBuffer2[2 * 240 * 6];
+  static uint8_t txBuffer3[2 * 240 * 6];
   bufferFillManager.push((unsigned char*) txBuffer1);
   bufferFillManager.push((unsigned char*) txBuffer2);
+  bufferFillManager.push((unsigned char*) txBuffer3);
   uint8_t* writeptr;
 
   if((x >= tft.width()) || (y >= tft.height())) return;
@@ -253,45 +230,45 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
         uint16_t bufferTracker = 0;
         for (row=0; row<h - 4; row+=4) { // For each scanline...
 
-            if (readptr) {
-              pauseDmaTransfer();
-            }
-           // bmpFile.seek(pos);
-           //Serial.printlnf("File Position: %d", bmpFile.position());
+          if (readptr) {
+            pauseDmaTransfer();
+          }
+          // bmpFile.seek(pos);
+          //Serial.printlnf("File Position: %d", bmpFile.position());
 
-             pos = bmpImageoffset + (row + by1) * rowSize;
-             pos += bx1 * 3; // Factor in starting column (bx1)
-             //Serial.printlnf("Target File Position: %d\n", pos);
-             bmpFile.seek(pos);
-             buffidx = sizeof(sdbuffer); // Force buffer reload
+          pos = bmpImageoffset + (row + by1) * rowSize;
+          pos += bx1 * 3; // Factor in starting column (bx1)
+          //Serial.printlnf("Target File Position: %d\n", pos);
+          bmpFile.seek(pos);
+          buffidx = sizeof(sdbuffer); // Force buffer reload
 
-            if (buffidx >= sizeof(sdbuffer)) { // Indeed
-              //Serial.print("Pause for Reading: ");
-              maxReadBufferLen = bmpFile.read(sdbuffer, sizeof(sdbuffer));
-              //Serial.printlnf("%d ", maxReadBufferLen);
-              //Serial.println("Complete");
+          if (buffidx >= sizeof(sdbuffer)) { // Indeed
+            //Serial.print("Pause for Reading: ");
+            maxReadBufferLen = bmpFile.read(sdbuffer, sizeof(sdbuffer));
+            //Serial.printlnf("%d ", maxReadBufferLen);
+            //Serial.println("Complete");
 
-              //for (int i = 0; i < quantRead; i++) {
-              //  bmpFile.read(&sdbuffer[i * rowSize], rowSize);
-              //  Serial.printf("%d ", i * rowSize);
-              //}
-              //Serial.println();
-              //if (!sizeBuff) {
-              //  bmpFile.read(&sdbuffer[sizeof(sdbuffer) - sizeBuff], sizeBuff);
-              //}
+            //for (int i = 0; i < quantRead; i++) {
+            //  bmpFile.read(&sdbuffer[i * rowSize], rowSize);
+            //  Serial.printf("%d ", i * rowSize);
+            //}
+            //Serial.println();
+            //if (!sizeBuff) {
+            //  bmpFile.read(&sdbuffer[sizeof(sdbuffer) - sizeBuff], sizeBuff);
+            //}
 
-                //pos = bmpImageoffset + (bmpHeight - 1 - (row + by1)) * rowSize;
-                //pos += bx1 * 3; // Factor in starting column (bx1)
-                //if (bmpFile.position() != pos) {
-                //  bmpFile.seek(pos);
-                //}
-              buffidx = 0; // Set index to beginning
-            }
-            unpauseDmaTransfer(readptr, txBufferLen);
+            //pos = bmpImageoffset + (bmpHeight - 1 - (row + by1)) * rowSize;
+            //pos += bx1 * 3; // Factor in starting column (bx1)
+            //if (bmpFile.position() != pos) {
+            //  bmpFile.seek(pos);
+            //}
+            buffidx = 0; // Set index to beginning
+          }
+          unpauseDmaTransfer(readptr, txBufferLen);
           //}
 
           while (buffidx < maxReadBufferLen) {
-          //while (buffidx < sizeof(sdbuffer)) {
+            //while (buffidx < sizeof(sdbuffer)) {
             //Serial.printf("%d-", buffidx);
             b = sdbuffer[buffidx++];
             //Serial.printf("%d-", buffidx);
@@ -306,7 +283,7 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
               while(isBufferFillEmpty) {
                 isBufferFillEmpty = bufferFillManager.empty();
                 SysCall::yield();
-               // Serial.printlnf("Somethin's up %d", isBufferFillEmpty);
+                // Serial.printlnf("Somethin's up %d", isBufferFillEmpty);
               }
               //Serial.println("Finished");
               writeptr = bufferFillManager.front();
@@ -338,40 +315,39 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
           //  Serial.printf("%d %d ", writeptr[r], writeptr[r+1]);
           //}
 
+          if (IsDmaReady && bufferSendManager.size() > 0) {
+            IsDmaReady = false;
+            readptr = bufferSendManager.front();
+            bufferSendManager.pop();
 
-         if (IsDmaReady && bufferSendManager.size() > 0) {
-           IsDmaReady = false;
-           readptr = bufferSendManager.front();
-           bufferSendManager.pop();
-
-           //Serial.println("startWrite may be bottleneck");
-           tft.startWrite();
-           //Serial.println("enter write");
-           tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
-           //Serial.println("Leave write");
-         }
-            // end scanline
-            //tft.endWrite(); // End last TFT transaction
+            //Serial.println("startWrite may be bottleneck");
+            tft.startWrite();
+            //Serial.println("enter write");
+            tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
+            //Serial.println("Leave write");
+          }
+          // end scanline
+          // End last TFT transaction
         }
-        } // end onscreen
-        Serial.print(F("Loaded in "));
-        Serial.print(millis() - startTime);
-        Serial.println(" ms");
-      } // end goodBmp
-    }
+      } // end onscreen
+      Serial.print(F("Loaded in "));
+      Serial.print(millis() - startTime);
+      Serial.println(" ms");
+    } // end goodBmp
   }
+}
 
-  readptr = NULL;
-  writeptr = NULL;
-  isBufferFillEmpty = true;
-  for (int i = 0; i < bufferSendManager.size(); i++) {
-    bufferSendManager.pop();
-  }
-  for (int i = 0; i < bufferFillManager.size(); i++) {
-    bufferFillManager.pop();
-  }
-  bmpFile.close();
-  if(!goodBmp) Serial.println(F("BMP format not recognized."));
+readptr = NULL;
+writeptr = NULL;
+isBufferFillEmpty = true;
+for (int i = 0; i < bufferSendManager.size(); i++) {
+  bufferSendManager.pop();
+}
+for (int i = 0; i < bufferFillManager.size(); i++) {
+  bufferFillManager.pop();
+}
+bmpFile.close();
+if(!goodBmp) Serial.println(F("BMP format not recognized."));
 }
 
 void pauseDmaTransfer() {
