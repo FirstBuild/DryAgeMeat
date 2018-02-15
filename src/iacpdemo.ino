@@ -85,8 +85,14 @@ void setup(void) {
   Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS, SPI_FULL_SPEED)) {
     SD.errorPrint("initFail");
+
+    Serial.println("Trying again...");
+
+    waitFor(resetSPILines, 5000);
   }
   Serial.println("OK!");
+
+  bmpDraw("unitUI1_F.bmp", 0, 0);
 }
 
 void loop() {
@@ -111,6 +117,20 @@ void loop() {
       timer = millis();
     }
   }
+}
+
+bool resetSPILines() {
+  bool result = false;
+  SPI.endTransaction();
+
+  static unsigned long lineResetDebounce = millis();
+  if ((millis() - lineResetDebounce) > 100) {
+    if (SD.begin(SD_CS, SPI_FULL_SPEED)) {
+      result = true;
+    }
+  }
+
+  return result;
 }
 
 // This function opens a Windows Bitmap (BMP) file and
