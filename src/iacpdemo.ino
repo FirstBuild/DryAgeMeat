@@ -61,10 +61,13 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 // Capacitive Touchscreen object
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
+#define REMAINING_BUFFER_SEND 1000
+
 SdFat SD;
 File file;
 volatile bool IsDmaReady = true;
 bool resumeFlag = false;
+bool flushBuffer = false;
 std::queue<uint8_t*> bufferFillManager;
 std::queue<uint8_t*> bufferSendManager;
 uint16_t transferProgressIndex = 0;
@@ -307,6 +310,7 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
               }
               //Serial.println("Finished");
               writeptr = bufferFillManager.front();
+              memset(writeptr, 0, txBufferLen);
               bufferFillManager.pop();
               bufferTracker = 0;
             }
@@ -323,6 +327,7 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
               bufferSendManager.push((unsigned char*) writeptr);
               if (bufferFillManager.size() > 0) {
                 writeptr = bufferFillManager.front();
+                memset(writeptr, 0, txBufferLen);
                 bufferFillManager.pop();
               } else {
                 writeptr = NULL;
@@ -357,17 +362,41 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
   }
 }
 
-readptr = NULL;
-writeptr = NULL;
-isBufferFillEmpty = true;
-for (int i = 0; i < bufferSendManager.size(); i++) {
-  bufferSendManager.pop();
-}
-for (int i = 0; i < bufferFillManager.size(); i++) {
-  bufferFillManager.pop();
-}
-bmpFile.close();
-if(!goodBmp) Serial.println(F("BMP format not recognized."));
+
+  unsigned long timer = millis();
+  while ((millis() - timer) < 200) {
+    if (IsDmaReady && bufferSendManager.size() > 0) {
+      IsDmaReady = false;
+      readptr = bufferSendManager.front();
+      bufferSendManager.pop();
+
+      //Serial.println("startWrite may be bottleneck");
+      tft.startWrite();
+      //Serial.println("enter write");
+      tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
+      //Serial.println("Leave write");
+    } else if (bufferSendManager.size() == 0) {
+      break;
+    }
+    SysCall::yield();
+  }
+
+  readptr = NULL;
+  writeptr = NULL;
+  isBufferFillEmpty = true;
+  flushBuffer = false;
+  Serial.printlnf("Remaining send buffers: %d", bufferSendManager.size());
+  for (int i = 0; i < bufferSendManager.size(); i++) {
+    bufferSendManager.pop();
+  }
+
+  Serial.printlnf("Remaining fill buffers: %d", bufferFillManager.size());
+  for (int i = 0; i < bufferFillManager.size(); i++) {
+    bufferFillManager.pop();
+  }
+
+  bmpFile.close();
+  if(!goodBmp) Serial.println(F("BMP format not recognized."));
 }
 
 void pauseDmaTransfer() {
