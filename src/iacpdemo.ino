@@ -62,12 +62,16 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
 #define REMAINING_BUFFER_SEND 1000
+#define BUFFPIXEL 960
+#define NUM_OF_ROWS 6
+
+uint8_t* readptr = NULL;
+volatile bool isBufferFillEmpty;
 
 SdFat SD;
 File file;
 volatile bool IsDmaReady = true;
 bool resumeFlag = false;
-bool flushBuffer = false;
 std::queue<uint8_t*> bufferFillManager;
 std::queue<uint8_t*> bufferSendManager;
 uint16_t transferProgressIndex = 0;
@@ -106,16 +110,12 @@ void loop() {
     if ((millis() - timer) > 100) {
       if (flip) {
         flip = false;
-        //tft.writecommand(ILI9341_DISPOFF);
         bmpDraw("unitUI1_F.bmp", 0, 0);
         //tft.fillRedScreen(ILI9341_RED);
-        //tft.writecommand(ILI9341_DISPON);
       } else {
         flip = true;
-        //tft.writecommand(ILI9341_DISPOFF);
         bmpDraw("unitUI2_F.bmp", 0, 0);
         //  bmpDraw("purple.bmp", 0, 0);
-        //tft.writecommand(ILI9341_DISPON);
       }
       timer = millis();
     }
@@ -144,11 +144,6 @@ bool resetSPILines() {
 // makes loading a little faster.  20 pixels seems a
 // good balance.
 
-#define BUFFPIXEL 960
-#define NUM_OF_ROWS 6
-
-uint8_t* readptr = NULL;
-volatile bool isBufferFillEmpty;
 
 void bmpDraw(char *filename, int16_t x, int16_t y) {
 
@@ -247,7 +242,6 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
         if(y2 >= tft.height()) h = tft.height() - y; // Clip bottom
 
         // Set TFT address window to clipped image bounds
-        //tft.startWrite(); // Requires start/end transaction now
         tft.setAddrWindow(x, y, w, h);
 
         uint16_t bufferTracker = 0;
@@ -256,59 +250,30 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
           if (readptr) {
             pauseDmaTransfer();
           }
-          // bmpFile.seek(pos);
-          //Serial.printlnf("File Position: %d", bmpFile.position());
 
           pos = bmpImageoffset + (row + by1) * rowSize;
           pos += bx1 * 3; // Factor in starting column (bx1)
-          //Serial.printlnf("Target File Position: %d\n", pos);
           bmpFile.seek(pos);
           buffidx = sizeof(sdbuffer); // Force buffer reload
 
           if (buffidx >= sizeof(sdbuffer)) { // Indeed
-            //Serial.print("Pause for Reading: ");
             maxReadBufferLen = bmpFile.read(sdbuffer, sizeof(sdbuffer));
-            //Serial.printlnf("%d ", maxReadBufferLen);
-            //Serial.println("Complete");
-
-            //for (int i = 0; i < quantRead; i++) {
-            //  bmpFile.read(&sdbuffer[i * rowSize], rowSize);
-            //  Serial.printf("%d ", i * rowSize);
-            //}
-            //Serial.println();
-            //if (!sizeBuff) {
-            //  bmpFile.read(&sdbuffer[sizeof(sdbuffer) - sizeBuff], sizeBuff);
-            //}
-
-            //pos = bmpImageoffset + (bmpHeight - 1 - (row + by1)) * rowSize;
-            //pos += bx1 * 3; // Factor in starting column (bx1)
-            //if (bmpFile.position() != pos) {
-            //  bmpFile.seek(pos);
-            //}
             buffidx = 0; // Set index to beginning
           }
           unpauseDmaTransfer(readptr, txBufferLen);
-          //}
 
           while (buffidx < maxReadBufferLen) {
-            //while (buffidx < sizeof(sdbuffer)) {
-            //Serial.printf("%d-", buffidx);
             b = sdbuffer[buffidx++];
-            //Serial.printf("%d-", buffidx);
             g = sdbuffer[buffidx++];
             r = sdbuffer[buffidx++];
 
             uint16_t colorStore = tft.color565(r, g, b);
 
             if (!writeptr) {
-              // Serial.println("Held up");
-
               while(isBufferFillEmpty) {
                 isBufferFillEmpty = bufferFillManager.empty();
                 SysCall::yield();
-                // Serial.printlnf("Somethin's up %d", isBufferFillEmpty);
               }
-              //Serial.println("Finished");
               writeptr = bufferFillManager.front();
               memset(writeptr, 0, txBufferLen);
               bufferFillManager.pop();
@@ -316,10 +281,8 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
             }
 
             if (writeptr) {
-              //Serial.printf("Write comp: %d | ", bufferTracker);
               writeptr[bufferTracker++] = colorStore >> 8;
               writeptr[bufferTracker++] = colorStore;
-              //Serial.printlnf("COMPLETE: %d", bufferTracker);
             }
 
             if (writeptr && (bufferTracker > txBufferLen - 1)) {
@@ -335,24 +298,16 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
             }
           } // end pixel
 
-          //for (int i = 0; i < w; i++) {
-          //  uint16_t r = i * 2;
-          //  Serial.printf("%d %d ", writeptr[r], writeptr[r+1]);
-          //}
-
           if (IsDmaReady && bufferSendManager.size() > 0) {
             IsDmaReady = false;
             readptr = bufferSendManager.front();
             bufferSendManager.pop();
 
-            //Serial.println("startWrite may be bottleneck");
             tft.startWrite();
-            //Serial.println("enter write");
             tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
-            //Serial.println("Leave write");
           }
           // end scanline
-          // End last TFT transaction
+          // end last TFT transaction
         }
       } // end onscreen
       Serial.print(F("Loaded in "));
@@ -363,49 +318,43 @@ void bmpDraw(char *filename, int16_t x, int16_t y) {
 }
 
 
-  unsigned long timer = millis();
-  while ((millis() - timer) < 200) {
-    if (IsDmaReady && bufferSendManager.size() > 0) {
-      IsDmaReady = false;
-      readptr = bufferSendManager.front();
-      bufferSendManager.pop();
-
-      //Serial.println("startWrite may be bottleneck");
-      tft.startWrite();
-      //Serial.println("enter write");
-      tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
-      //Serial.println("Leave write");
-    } else if (bufferSendManager.size() == 0) {
-      break;
-    }
-    SysCall::yield();
-  }
-
-  readptr = NULL;
-  writeptr = NULL;
-  isBufferFillEmpty = true;
-  flushBuffer = false;
-  Serial.printlnf("Remaining send buffers: %d", bufferSendManager.size());
-  for (int i = 0; i < bufferSendManager.size(); i++) {
+unsigned long timer = millis();
+while ((millis() - timer) < 200) {
+  if (IsDmaReady && bufferSendManager.size() > 0) {
+    IsDmaReady = false;
+    readptr = bufferSendManager.front();
     bufferSendManager.pop();
-  }
 
-  Serial.printlnf("Remaining fill buffers: %d", bufferFillManager.size());
-  for (int i = 0; i < bufferFillManager.size(); i++) {
-    bufferFillManager.pop();
+    tft.startWrite();
+    tft.dmaspiwrite(readptr, txBufferLen, resetDmaReadyFlag);
+  } else if (bufferSendManager.size() == 0) {
+    break;
   }
+  SysCall::yield();
+}
 
-  bmpFile.close();
-  if(!goodBmp) Serial.println(F("BMP format not recognized."));
+readptr = NULL;
+writeptr = NULL;
+isBufferFillEmpty = true;
+Serial.printlnf("Remaining send buffers: %d", bufferSendManager.size());
+for (int i = 0; i < bufferSendManager.size(); i++) {
+  bufferSendManager.pop();
+}
+
+Serial.printlnf("Remaining fill buffers: %d", bufferFillManager.size());
+for (int i = 0; i < bufferFillManager.size(); i++) {
+  bufferFillManager.pop();
+}
+
+bmpFile.close();
+if(!goodBmp) Serial.println(F("BMP format not recognized."));
 }
 
 void pauseDmaTransfer() {
   SPI.transferCancel();
-  //Serial.print("Waiting...");
   while (!IsDmaReady) {
     SysCall::yield();
   }
-  //Serial.println("  Finished!");
   if (transferProgressIndex < 2 * 240 * NUM_OF_ROWS) {
     resumeFlag = true;
   } else {
@@ -421,18 +370,8 @@ void unpauseDmaTransfer(uint8_t* txBuffer, uint16_t bufflen) {
   IsDmaReady = false;
   resumeFlag = false;
   uint16_t indexFromEnd = bufflen - transferProgressIndex;
-  //Serial.printlnf("RESUME -- Remaining: %d", indexFromEnd);
 
   tft.startWrite();
-
-  //  Somehow Particle knows what's already sent and appropriate handles unsent data.
-  //    Unlikely.
-  //tft.dmaspiwrite(txBuffer, bufflen, resetDmaReadyFlag);
-
-  //  Data is sent from the end of the array.
-  //tft.dmaspiwrite(txBuffer, indexFromEnd, resetDmaReadyFlag);
-
-  // Data shifts out from the beginning of the array. -- Result: No go.
   tft.dmaspiwrite(&txBuffer[transferProgressIndex], indexFromEnd, resetDmaReadyFlag);
 }
 
