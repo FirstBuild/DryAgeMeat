@@ -65,6 +65,12 @@ Adafruit_FT6206 ts = Adafruit_FT6206();
 #define BUFFPIXEL 960
 #define NUM_OF_ROWS 6
 
+enum DemoScreenIndex {
+  DemoScreenIndex_FB_Logo = 0,
+  DemoScreenIndex_UIUnit1 = 1,
+  DemoScreenIndex_UIUnit2 = 2
+};
+
 uint8_t* readptr = NULL;
 volatile bool isBufferFillEmpty;
 
@@ -75,6 +81,7 @@ bool resumeFlag = false;
 std::queue<uint8_t*> bufferFillManager;
 std::queue<uint8_t*> bufferSendManager;
 uint16_t transferProgressIndex = 0;
+DemoScreenIndex currentScreenIndex = DemoScreenIndex_FB_Log;
 
 void setup(void) {
   Serial.begin(9600);
@@ -103,21 +110,33 @@ void setup(void) {
 }
 
 void loop() {
-  static unsigned long timer = millis();
-  static bool flip = false;
-  if (ts.touched()) {
+  handleScreenToggle();
+}
 
+void handleScreenToggle() {
+  static unsigned long timer = millis();
+  if (ts.touched()) {
     if ((millis() - timer) > 100) {
-      if (flip) {
-        flip = false;
-        bmpDraw("unitUI1_F.bmp", 0, 0);
-        //tft.fillRedScreen(ILI9341_RED);
-      } else {
-        flip = true;
-        bmpDraw("unitUI2_F.bmp", 0, 0);
-        //  bmpDraw("purple.bmp", 0, 0);
+      switch (currentScreenIndex) {
+        case DemoScreenIndex_FB_Logo:
+          bmpDraw("FBLogo_F.bmp", 0, 0);
+          break;
+
+        case DemoScreenIndex_UIUnit1:
+          bmpDraw("unitUI1_F.bmp", 0, 0);
+          break;
+
+        case DemoScreenIndex_UIUnit2:
+          bmpDraw("unitUI2_F.bmp", 0, 0);
+          break;
+
+        default:
+          bmpDraw("FBLogo_F.bmp", 0, 0);
+          break;
       }
       timer = millis();
+      currentScreenIndex++;
+      currentScreenIndex %= 3;
     }
   }
 }
