@@ -81,7 +81,7 @@ bool resumeFlag = false;
 std::queue<uint8_t*> bufferFillManager;
 std::queue<uint8_t*> bufferSendManager;
 uint16_t transferProgressIndex = 0;
-DemoScreenIndex currentScreenIndex = DemoScreenIndex_FB_Log;
+DemoScreenIndex currentScreenIndex = DemoScreenIndex_FB_Logo;
 
 void setup(void) {
   Serial.begin(9600);
@@ -106,7 +106,7 @@ void setup(void) {
   }
   Serial.println("OK!");
 
-  bmpDraw("unitUI1_F.bmp", 0, 0);
+  bmpDraw("FBLogo_F.bmp", 0, 0);
 }
 
 void loop() {
@@ -135,8 +135,8 @@ void handleScreenToggle() {
           break;
       }
       timer = millis();
-      currentScreenIndex++;
-      currentScreenIndex %= 3;
+      currentScreenIndex = (DemoScreenIndex) (currentScreenIndex + 1);
+      currentScreenIndex = (DemoScreenIndex) (currentScreenIndex % 3);
     }
   }
 }
